@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getStoredApiKey } from "@/lib/apiKey";
 
 type QaPair = {
   question: string;
@@ -63,6 +64,11 @@ export default function InterviewPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
+
+  useEffect(() => {
+    setApiKey(getStoredApiKey());
+  }, []);
 
   async function callApi(
     action: "start" | "submit_answer" | "next_question" | "finish",
@@ -73,7 +79,10 @@ export default function InterviewPage() {
     try {
       const res = await fetch("/api/interview", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-openai-api-key": apiKey,
+        },
         body: JSON.stringify({
           jobDescription,
           totalQuestions,
@@ -188,12 +197,20 @@ export default function InterviewPage() {
             面試模擬器
           </span>
         </Link>
-        <Link
-          href="/"
-          className="text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-        >
-          ← 返回首頁
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/settings"
+            className="text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            設定
+          </Link>
+          <Link
+            href="/"
+            className="text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            ← 返回首頁
+          </Link>
+        </div>
       </header>
 
       <main className="relative z-10 flex flex-1 flex-col items-center px-4 pb-16">
@@ -222,6 +239,17 @@ export default function InterviewPage() {
                   輸入職缺描述與題數，AI 面試官會立即為你出題
                 </p>
               </div>
+              {!apiKey && (
+                <div className="flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                  <p>
+                    尚未設定 OpenAI API Key，請先前往{" "}
+                    <Link href="/settings" className="font-medium underline">
+                      設定頁
+                    </Link>{" "}
+                    輸入你自己的 API Key 才能開始面試。
+                  </p>
+                </div>
+              )}
               <section className={`flex flex-col gap-4 ${cardClass}`}>
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -256,7 +284,7 @@ export default function InterviewPage() {
                 </div>
                 <button
                   onClick={handleStart}
-                  disabled={!jobDescription.trim() || loading}
+                  disabled={!jobDescription.trim() || !apiKey || loading}
                   className={`mt-1 ${primaryButtonClass}`}
                 >
                   {loading ? "準備題目中…" : "開始模擬面試"}

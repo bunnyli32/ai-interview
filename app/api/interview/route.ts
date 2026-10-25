@@ -37,9 +37,16 @@ type ApiResponse =
     }
   | { phase: "result"; score: number; feedback: string };
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export async function POST(req: NextRequest) {
+  const apiKey = req.headers.get("x-openai-api-key")?.trim();
+
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "請先在設定頁輸入你的 OpenAI API Key" },
+      { status: 401 }
+    );
+  }
+
   let body: RequestBody;
   try {
     body = await req.json();
@@ -59,46 +66,7 @@ export async function POST(req: NextRequest) {
     Math.max(MIN_QUESTIONS, Math.round(body.totalQuestions) || DEFAULT_QUESTIONS)
   );
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: "伺服器未設定 OPENAI_API_KEY" },
-      { status: 500 }
-    );
-  }
-
-  // TEMP: mock mode for testing the frontend flow without calling OpenAI.
-  // Remove before shipping.
-  if (true || req.headers.get("x-mock-interview") === "1") {
-    await new Promise((r) => setTimeout(r, 300));
-
-    if (action === "start" || action === "next_question") {
-      return NextResponse.json({
-        phase: "question",
-        question: `【假資料】這是第 ${qaPairs.length + 1} 題模擬問題，請描述你過去解決過的一個技術挑戰。`,
-        index: qaPairs.length + 1,
-        total: totalQuestions,
-      } satisfies ApiResponse);
-    }
-
-    if (action === "submit_answer") {
-      return NextResponse.json({
-        phase: "feedback",
-        comment: "【假資料】回答有提到具體情境，但結果的量化數據略少。",
-        referenceAnswer:
-          "【假資料·正解】可說明：當時面臨的情境與限制 → 採取的具體行動 → 最終可量化的成果（例如效能提升 30%、節省 X 小時）。",
-        betterExpression:
-          "【假資料·表達建議】建議用 STAR 法則（情境、任務、行動、結果）重新組織回答，並在結尾加上一句量化成果，讓面試官更容易記住重點。",
-        isLast: qaPairs.length + 1 >= totalQuestions,
-      } satisfies ApiResponse);
-    }
-
-    return NextResponse.json({
-      phase: "result",
-      score: 78,
-      feedback:
-        "【假資料】整體表現不錯，對職缺相關技術有基本掌握。\n- 建議補充實際專案經驗的細節\n- 回答可以更結構化（情境、任務、行動、結果）",
-    } satisfies ApiResponse);
-  }
+  const openai = new OpenAI({ apiKey });
 
   try {
     let systemPrompt: string;
@@ -169,6 +137,12 @@ ${historyText}
     return NextResponse.json(parsed as ApiResponse);
   } catch (err) {
     console.error(err);
+    if (err instanceof OpenAI.APIError && err.status === 401) {
+      return NextResponse.json(
+        { error: "OpenAI API Key 無效，請到設定頁確認後再試一次" },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       { error: "呼叫 OpenAI API 時發生錯誤" },
       { status: 500 }

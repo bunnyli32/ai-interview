@@ -55,6 +55,9 @@ export default function LandingPage() {
           <a href="#how-it-works" className="transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">
             使用方式
           </a>
+          <Link href="/settings" className="transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">
+            設定 API Key
+          </Link>
         </nav>
         <Link
           href="/interview"
